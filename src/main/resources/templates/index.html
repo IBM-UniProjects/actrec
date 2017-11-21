@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.16/css/jquery.dataTables.min.css" />
+    <link rel="stylesheet" type="text/css" href="//cdn.datatables.net/1.10.16/css/jquery.dataTables.css" />
+    <script type="text/javascript" charset="utf8" src="//cdn.datatables.net/1.10.16/js/jquery.dataTables.js"></script>
+    <style>
+        #map {
+            height: 600px;
+            width: 800px;
+        }
+    </style>
+    <script type="text/javascript">
+        /*<![CDATA[*/
+        var chosenPersonId = 0;
+        var chosenPersonLocations = [];
+        var map = {};
+        var personMovement = {};
+
+        function httpGetAsync(url, callback) {
+            var xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    callback(this.responseText);
+                }
+            };
+            xhttp.open("GET", url, true);
+            xhttp.send();
+        }
+        function parseLocationData(location, i, arr) {
+            arr[i] = [location.id, location.lastLocationTime, location.latitude, location.longitude];
+        }
+        function addOption(item) {
+            var option = document.createElement("option");
+            option.value = item.id;
+            option.text = item.id + ". " + item.name + " " + item.surname;
+            personSelect.add(option);
+        }
+        function getLocations() {
+            chosenPersonId = personSelect.options[personSelect.selectedIndex].value;
+            var url = "http://localhost:8080" + "/location/personId=" + chosenPersonId;
+            var callback = function (locations) {
+                chosenPersonLocations = JSON.parse(locations);
+                locations = JSON.parse(locations);
+                locations.forEach(parseLocationData);
+                $('#locationTable').dataTable().fnClearTable();
+                if (locations.length !== 0)
+                    $('#locationTable').dataTable().fnAddData(locations);
+                setPersonPath();
+            };
+            httpGetAsync(url, callback);
+        }
+        function setPersonPath() {
+            var path = [];
+            for (var i = 0; i < chosenPersonLocations.length; i++) {
+                path.push({lat: chosenPersonLocations[i].latitude, lng: chosenPersonLocations[i].longitude});
+            }
+
+            if(chosenPersonLocations.length !== 0) {
+                personMovement.setPath(path);
+                personMovement.setMap(map);
+                map.setCenter(path[path.length - 1]);
+            }
+            else personMovement.setMap(null);
+        }
+        function getAllPeople() {
+            var url = "http://localhost:8080/person";
+            var callback = function (people) {
+                people = JSON.parse(people);
+                people.forEach(addOption);
+                personSelect.onchange = getLocations;
+                getLocations();
+            };
+            httpGetAsync(url, callback);
+        }
+        /*]]>*/
+    </script>
+</head>
+<body>
+<h3>Activity Monitoring</h3>
+<h4>Amadeusz Lisiecki, Michał Pomiećko</h4>
+<center><div id="map"></div></center>
+<select id="personSelect" />
+<table id="locationTable" class="display" cellspacing="0" width="100%"></table>
+<script>
+    function initMap() {
+        map = new google.maps.Map(document.getElementById('map'), {
+            zoom: 10,
+            mapTypeId: 'terrain'
+        });
+
+        personMovement = new google.maps.Polyline({
+            geodesic: true,
+            strokeColor: '#FF0000',
+            strokeOpacity: 1.0,
+            strokeWeight: 2
+        });
+    }
+</script>
+<script async="async" defer="defer"
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBJEWlBRejDBJKxcwKiPkb17lu6zmyxHT0&amp;callback=initMap"
+        type="text/javascript">
+</script>
+<script>
+    var personSelect = document.getElementById("personSelect");
+    $(document).ready(function() {
+        $('#locationTable').DataTable({
+            columns: [
+                { title: "ID" },
+                { title: "Last location time" },
+                { title: "Latitude" },
+                { title: "Longtitude" }
+            ]
+        });
+    });
+    getAllPeople();
+</script>
+</body>
+</html>
