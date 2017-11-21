@@ -17,6 +17,7 @@
         var chosenPersonLocations = [];
         var map = {};
         var personMovement = {};
+        var hostURL = location.protocol.concat("//").concat(window.location.host);
 
         function httpGetAsync(url, callback) {
             var xhttp = new XMLHttpRequest();
@@ -39,7 +40,7 @@
         }
         function getLocations() {
             chosenPersonId = personSelect.options[personSelect.selectedIndex].value;
-            var url = "http://localhost:8080" + "/location/personId=" + chosenPersonId;
+            var url = hostURL + "/location/personId=" + chosenPersonId;
             var callback = function (locations) {
                 chosenPersonLocations = JSON.parse(locations);
                 locations = JSON.parse(locations);
@@ -65,7 +66,7 @@
             else personMovement.setMap(null);
         }
         function getAllPeople() {
-            var url = "http://localhost:8080/person";
+            var url = hostURL + "/person";
             var callback = function (people) {
                 people = JSON.parse(people);
                 people.forEach(addOption);
