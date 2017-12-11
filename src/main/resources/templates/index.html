@@ -5,6 +5,7 @@
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.16/css/jquery.dataTables.min.css" />
     <link rel="stylesheet" type="text/css" href="//cdn.datatables.net/1.10.16/css/jquery.dataTables.css" />
     <script type="text/javascript" charset="utf8" src="//cdn.datatables.net/1.10.16/js/jquery.dataTables.js"></script>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
     <style>
         #map {
             height: 600px;
@@ -18,6 +19,14 @@
         var map = {};
         var personMovement = {};
         var hostURL = location.protocol.concat("//").concat(window.location.host);
+        var timestamp = [];
+        var dataTable = {};
+        var maxSpeed = 0;
+        var sumSpeed = 0;
+        var avgSpeed = 0;
+        var counter = 0;
+
+        google.charts.load('current', {'packages':['corechart']});
 
         function httpGetAsync(url, callback) {
             var xhttp = new XMLHttpRequest();
@@ -30,7 +39,50 @@
             xhttp.send();
         }
         function parseLocationData(location, i, arr) {
-            arr[i] = [location.id, location.lastLocationTime, location.latitude, location.longitude];
+            timestamp.push(parseInt(location.lastLocationTime));
+            var date = (new Date(parseInt(location.lastLocationTime) * 1000));
+            arr[i] = [location.id, date.toLocaleString("pl-PL"), location.latitude, location.longitude];
+            if(i === 0) {
+                dataTable.addRow([date, 0]);
+            }
+            else {
+                var lastLatLng = new google.maps.LatLng(arr[i-1][2], arr[i-1][3]);
+                var thisLatLng = new google.maps.LatLng(location.latitude, location.longitude);
+                var ds = google.maps.geometry.spherical.computeDistanceBetween(thisLatLng, lastLatLng);
+                var dt = parseInt(location.lastLocationTime) - timestamp[i-1];
+                if(dt > 0) {
+                    var speed = ds / dt; // mps
+                    if (dt > 15) {
+                        dataTable.addRow([date, 0]);
+                    } else {
+                        dataTable.addRow([date, speed]);
+                        if (speed > maxSpeed) maxSpeed = speed;
+                        sumSpeed += speed;
+                        counter++;
+                    }
+                }
+            }
+        }
+        function drawSpeedPlot() {
+            var options = {
+                title: 'Speed',
+                height: 400,
+                curveType: 'none',
+                legend: { position: 'bottom' },
+                hAxis: { title: 'Time' },
+                vAxis: {
+                    title: 'Speed [m/s]',
+                    minValue: 0
+                },
+                explorer: {
+                    actions: ['dragToZoom', 'rightClickToReset'],
+                    axis: 'horizontal',
+                    keepInBounds: true,
+                    maxZoomIn: 4.0
+                }
+            };
+            var chart = new google.visualization.LineChart(document.getElementById('plot'));
+            chart.draw(dataTable, options);
         }
         function addOption(item) {
             var option = document.createElement("option");
@@ -44,11 +96,23 @@
             var callback = function (locations) {
                 chosenPersonLocations = JSON.parse(locations);
                 locations = JSON.parse(locations);
+                timestamp = [];
+                dataTable = new google.visualization.DataTable();
+                dataTable.addColumn('datetime', 'Time');
+                dataTable.addColumn('number', 'Speed');
+                avgSpeed = 0;
+                sumSpeed = 0;
+                maxSpeed = 0;
+                counter = 0;
                 locations.forEach(parseLocationData);
+                avgSpeed = sumSpeed / counter;
+                document.getElementById("avg").innerHTML = avgSpeed.toFixed(2).toString() + " m/s";
+                document.getElementById("max").innerHTML = maxSpeed.toFixed(2).toString() + " m/s";
                 $('#locationTable').dataTable().fnClearTable();
                 if (locations.length !== 0)
                     $('#locationTable').dataTable().fnAddData(locations);
                 setPersonPath();
+                drawSpeedPlot();
             };
             httpGetAsync(url, callback);
         }
@@ -81,8 +145,10 @@
 <body>
 <h3>Activity Monitoring</h3>
 <h4>Amadeusz Lisiecki, Michał Pomiećko</h4>
-<center><div id="map"></div></center>
+<div id="map" style="margin:auto;"></div>
 <select id="personSelect" />
+<div id="stats" style="margin:auto;">Max speed: <div id="max"></div> Average speed: <div id="avg"></div> </div>
+<div id="plot" style="margin:auto;"></div>
 <table id="locationTable" class="display" cellspacing="0" width="100%"></table>
 <script>
     function initMap() {
@@ -100,7 +166,7 @@
     }
 </script>
 <script async="async" defer="defer"
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBJEWlBRejDBJKxcwKiPkb17lu6zmyxHT0&amp;callback=initMap"
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBJEWlBRejDBJKxcwKiPkb17lu6zmyxHT0&amp;callback=initMap&amp;libraries=geometry"
         type="text/javascript">
 </script>
 <script>

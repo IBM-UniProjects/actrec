@@ -31,7 +31,7 @@ public class LocationREST {
     @RequestMapping(method = RequestMethod.GET, value = "/personId={personId}")
     Collection<Location> getPersonLocations(@PathVariable Long personId) {
         this.validatePersonId(personId);
-        return this.locationRepository.findByPersonId(personId);
+        return this.locationRepository.findByPersonIdOrderByLastLocationTime(personId);
     }
 
     @RequestMapping(method = RequestMethod.POST, value = "/personId={personId}")
